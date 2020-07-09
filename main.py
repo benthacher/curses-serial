@@ -1,7 +1,7 @@
 import sys,os
 import curses
 
-from cdom import CDOM, Link, KeyEvent
+from cdom import CDOM, CDOMStyle, Link, KeyEvent
 import pages
 
 from enum import Enum
@@ -16,23 +16,18 @@ def draw_menu(stdscr):
 
     curses.curs_set(0)
 
-    curses.use_default_colors()
-    curses.init_pair(1, curses.COLOR_CYAN, curses.COLOR_CYAN)
-    curses.init_pair(2, curses.COLOR_RED, curses.COLOR_MAGENTA)
-    curses.init_pair(3, curses.COLOR_BLACK, curses.COLOR_WHITE)
-    curses.init_pair(4, curses.COLOR_WHITE, curses.COLOR_YELLOW)
-    curses.init_pair(5, curses.COLOR_BLACK, curses.COLOR_MAGENTA)
-    curses.init_pair(6, curses.COLOR_BLACK, curses.COLOR_CYAN)
-
     curses.mousemask(1)
 
-    cdom = CDOM(stdscr, 
-        backgroundColor  = curses.color_pair(1),
-        titleColor       = curses.color_pair(2),
-        textColor        = curses.color_pair(3),
-        highlightedColor = curses.color_pair(4),
-        wallColor        = curses.color_pair(5),
-        shadowColor      = curses.color_pair(6))
+    cdom = CDOM(stdscr,
+        style=CDOMStyle(
+            backgroundColor  = (curses.COLOR_CYAN, curses.COLOR_CYAN),
+            titleColor       = (curses.COLOR_RED, curses.COLOR_MAGENTA),
+            textColor        = (curses.COLOR_BLACK, curses.COLOR_WHITE),
+            highlightedColor = (curses.COLOR_WHITE, curses.COLOR_YELLOW),
+            wallColor        = (curses.COLOR_BLACK, curses.COLOR_MAGENTA),
+            shadowColor      = (curses.COLOR_BLACK, curses.COLOR_CYAN)
+        )
+    )
 
     cdom.addPages(*pages.pages)
 

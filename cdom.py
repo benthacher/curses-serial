@@ -10,6 +10,34 @@ def ellipsis(text: str, usable_space: int):
     tooSmall = usable_space < len(text)
     return '' if usable_space == 0 else text[:usable_space - tooSmall] + ('…' if tooSmall else '')
 
+class CDOMStyle:
+    def __init__(self, backgroundColor: tuple, wallColor: tuple, titleColor: tuple, textColor: tuple, shadowColor: tuple, highlightedColor: tuple):
+        curses.use_default_colors()
+
+        curses.init_pair(1, backgroundColor[0], backgroundColor[1])
+        self.backgroundColor = curses.color_pair(1)
+        
+        curses.init_pair(2, wallColor[0], wallColor[1])
+        self.wallColor = curses.color_pair(2)
+
+        curses.init_pair(3, titleColor[0], titleColor[1])
+        self.titleColor = curses.color_pair(3)
+
+        curses.init_pair(4, textColor[0], textColor[1])
+        self.textColor = curses.color_pair(4)
+
+        curses.init_pair(5, shadowColor[0], shadowColor[1])
+        self.shadowColor = curses.color_pair(5)
+
+        curses.init_pair(6, highlightedColor[0], highlightedColor[1])
+        self.highlightedColor = curses.color_pair(6)
+
+# Stands for Curses Document Object Model, modeled loosely after the javascript DOM
+
+# CDOM -> window
+# page -> document
+# element -> element/node
+
 class CDOM:
 
     # thin wall characters
@@ -48,15 +76,11 @@ class CDOM:
     MIN_TITLE_PADDING = 3
 
     # I need a better way of passing colors
-    def __init__(self, stdscr, backgroundColor, wallColor, titleColor, textColor, shadowColor, highlightedColor):
+    def __init__(self, stdscr, style):
         self.pages = []
         self.stdscr = stdscr
-        self.backgroundColor = backgroundColor
-        self.wallColor = wallColor
-        self.titleColor = titleColor
-        self.textColor = textColor
-        self.shadowColor = shadowColor
-        self.highlightedColor = highlightedColor
+
+        self.style = style
 
         self.height = 0
         self.width = 0
@@ -139,7 +163,7 @@ class CDOM:
 
         # clear background
         try:
-            self.stdscr.bkgd(' ', self.backgroundColor)
+            self.stdscr.bkgd(' ', self.style.backgroundColor)
         except curses.error:
             pass
 
@@ -190,16 +214,16 @@ class CDOM:
 
         # draw page shadow
         if page.style.shadow:
-            self.trystr(top + usableHeight + page.style.border, left + (not page.style.border), self.SHADOW_BOTTOM * (usableWidth - 1 + 2 * page.style.border - (page.style.border and width <= pageWidth)), self.shadowColor)
+            self.trystr(top + usableHeight + page.style.border, left + (not page.style.border), self.SHADOW_BOTTOM * (usableWidth - 1 + 2 * page.style.border - (page.style.border and width <= pageWidth)), self.style.shadowColor)
 
-            self.trystr(top - page.style.border, left + pageWidth + page.style.border, self.SHADOW_TOP_RIGHT, self.shadowColor)
+            self.trystr(top - page.style.border, left + pageWidth + page.style.border, self.SHADOW_TOP_RIGHT, self.style.shadowColor)
             
             for line in range(usableHeight - 1 + 2 * page.style.border):
-                self.trystr(top + line + (not page.style.border), left + pageWidth + page.style.border, self.SHADOW_RIGHT, self.shadowColor)
+                self.trystr(top + line + (not page.style.border), left + pageWidth + page.style.border, self.SHADOW_RIGHT, self.style.shadowColor)
             
-            self.trystr(top + usableHeight + page.style.border, left - page.style.border, self.SHADOW_BOTTOM_LEFT, self.shadowColor)
+            self.trystr(top + usableHeight + page.style.border, left - page.style.border, self.SHADOW_BOTTOM_LEFT, self.style.shadowColor)
         
-            self.trystr(top + usableHeight + page.style.border, left + usableWidth + page.style.border, self.SHADOW_BOTTOM_RIGHT, self.shadowColor)
+            self.trystr(top + usableHeight + page.style.border, left + usableWidth + page.style.border, self.SHADOW_BOTTOM_RIGHT, self.style.shadowColor)
             
 
         if height >= 1:
@@ -225,27 +249,27 @@ class CDOM:
 
                 for line in range(top, top + usableHeight):
                     if width > pageWidth + 1:
-                        self.trystr(line, left - 1, CDOM.VERTICAL, self.wallColor)
+                        self.trystr(line, left - 1, CDOM.VERTICAL, self.style.wallColor)
                     if width > pageWidth:
-                        self.trystr(line, left + usableWidth, CDOM.VERTICAL, self.wallColor)
+                        self.trystr(line, left + usableWidth, CDOM.VERTICAL, self.style.wallColor)
                 
                 if height > pageHeight + 1:
-                    self.trystr(top - 1, left, preTitle, self.wallColor)
-                    self.trystr(top - 1, left + len(preTitle), title, self.titleColor | curses.A_BOLD)
-                    self.trystr(top - 1, left + len(preTitle + title), postTitle, self.wallColor)
+                    self.trystr(top - 1, left, preTitle, self.style.wallColor)
+                    self.trystr(top - 1, left + len(preTitle), title, self.style.titleColor | curses.A_BOLD)
+                    self.trystr(top - 1, left + len(preTitle + title), postTitle, self.style.wallColor)
 
                 if height > pageHeight:
-                    self.trystr(top + usableHeight, left, CDOM.HORIZONTAL * usableWidth, self.wallColor)
+                    self.trystr(top + usableHeight, left, CDOM.HORIZONTAL * usableWidth, self.style.wallColor)
 
                 # try corners
-                self.trystr(top - 1, left - 1, CDOM.TOP_LEFT_CHAR, self.wallColor)
-                self.trystr(top - 1, left + usableWidth, CDOM.TOP_RIGHT_CHAR, self.wallColor)
-                self.trystr(top + usableHeight, left - 1, CDOM.BOTTOM_LEFT_CHAR, self.wallColor)
-                self.trystr(top + usableHeight, left + usableWidth, CDOM.BOTTOM_RIGHT_CHAR, self.wallColor)
+                self.trystr(top - 1, left - 1, CDOM.TOP_LEFT_CHAR, self.style.wallColor)
+                self.trystr(top - 1, left + usableWidth, CDOM.TOP_RIGHT_CHAR, self.style.wallColor)
+                self.trystr(top + usableHeight, left - 1, CDOM.BOTTOM_LEFT_CHAR, self.style.wallColor)
+                self.trystr(top + usableHeight, left + usableWidth, CDOM.BOTTOM_RIGHT_CHAR, self.style.wallColor)
 
             # draw background for page
             for line in range(usableHeight):
-                self.trystr(top + line, left, ' ' * usableWidth, self.textColor)
+                self.trystr(top + line, left, ' ' * usableWidth, self.style.textColor)
             
             # if ain't no elems, don't render ya dummy !
             if len(elements) == 0:
@@ -272,7 +296,7 @@ class CDOM:
 
                     if currentLine >= self.displayLine:
 
-                        unhighlighted_color = self.textColor
+                        unhighlighted_color = self.style.textColor
                         x = page.style.margin[1]
 
                         string = ''
@@ -289,19 +313,19 @@ class CDOM:
                                     textspace - len(string) - elem.style.indent
                                 ][elem.style.align.value]
 
-                                unhighlighted_color = (self.textColor if not elem.style.color else curses.color_pair(elem.style.color)) | elem.style.weight
+                                unhighlighted_color = (self.style.textColor if not elem.style.color else curses.color_pair(elem.style.color)) | elem.style.weight
 
                         string = ellipsis(string, textspace - elem.style.indent)
 
                         if elem is page.highlightedElement:
-                            self.trystr(top + currentLine + page.style.margin[0] - self.displayLine, left + x, string, self.highlightedColor | elem.style.weight | curses.A_BOLD)
+                            self.trystr(top + currentLine + page.style.margin[0] - self.displayLine, left + x, string, self.style.highlightedColor | elem.style.weight | curses.A_BOLD)
                         else:
-                            self.trystr(top + currentLine + page.style.margin[0] - self.displayLine, left + x, string, unhighlighted_color or self.textColor | elem.style.weight)
+                            self.trystr(top + currentLine + page.style.margin[0] - self.displayLine, left + x, string, unhighlighted_color or self.style.textColor | elem.style.weight)
 
                     currentLine += 1
 
         self.stdscr.move(0, 0)
-        self.trystr(0, 0, self.logString, self.shadowColor)
+        self.trystr(0, 0, self.logString, self.style.shadowColor)
          
         # Refresh the screen
         self.stdscr.refresh()
