@@ -2,38 +2,26 @@ import curses
 
 from page import Page, PageStyle
 from element import Element, Style, Align, Selectable, Link, Break, Wallbreak, Input, Dropdown, Checkbox
+from connection import SerialConnection
 
 import subprocess
 import re
 
-import serial
 import serial.tools.list_ports
-import time
-import threading
 
-def currentTime():
-    return int(round(time.time() * 1000))
-
-mainStillRunning = True
-selectedPort = ''
-selectedBaudrate = 0
 customBaudrate = False
-showTime = False
 startTime = 0
-ser = None
+
+connection = SerialConnection()
 
 def select_port(this, e):
-    global selectedPort
-    
-    selectedPort = this.ID
+    connection.port = this.ID
 
 def set_values(this, e):
-    global selectedBaudrate, showTime
-
     page = this.page
 
-    selectedBaudrate = page.getElementByID('baudrate').value if not customBaudrate else page.getElementByID('baudrate-custom').value
-    showTime = page.getElementByID('show-time').checked
+    connection.baudrate = page.getElementByID('baudrate').value if not customBaudrate else page.getElementByID('baudrate-custom').value
+    connection.showTime = page.getElementByID('show-time').checked
 
 def load_serial_ports(page):
     devices = [tuple(p) for p in list(serial.tools.list_ports.comports())]
@@ -53,47 +41,13 @@ def load_serial_ports(page):
 
         link.updateText()
 
-def load_port(page):
-    global ser, startTime
+def send_data(this, e):
+    if this.value != '' and not this.selected:
+        connection.send(this.value)
 
-    page.title = selectedPort
-    ser = serial.Serial(selectedPort, selectedBaudrate)
+        this.value = ''
 
-    startTime = currentTime()
-
-    threading.Thread(target=read_from_port, args=[ page ]).start()
-
-def close_port(page):
-    global mainStillRunning
-
-    ser.close()
-    mainStillRunning = False
-
-def read_from_port(page):
-    try:
-        serialData = page.getElementByID('serial-data')
-
-        while mainStillRunning:
-            
-            if showTime:
-                serialData.text += "[{}] ".format(format(currentTime() - startTime, '07'))
-
-            try:
-                serialData.text += ser.read().decode('utf-8')
-            except UnicodeDecodeError:
-                pass
-
-    except KeyboardInterrupt:
-        page.addElement(Element(text='Detached from ' + ser.name))
-        ser.close()
-
-def send_data(this):
-    input = this.page.getElementByID('send-input')
-
-    if input.value != '':
-        ser.write(input.value)
-    
-        input.value = ''
+        this.selected = True
 
 def toggle_custom_baudrate(this, e):
     global customBaudrate
@@ -119,7 +73,7 @@ pages = [
     Page(
         url='home',
         title='Serial TUI',
-        size=(10, 40),
+        size=(None, 40),
         elements=[
             Element(
                 text='Select an option',
@@ -203,12 +157,13 @@ pages = [
             Input(
                 label='λ',
                 ID='send-input',
-                boxed=False
+                boxed=False,
+                onselect=send_data
             ),
             Wallbreak(),
             Element(ID='serial-data')
         ],
-        onload=load_port,
-        onunload=close_port
+        onload=connection.connect,
+        onunload=connection.disconnect
     )
 ]

@@ -194,7 +194,7 @@ class Input(Selectable):
         if self.selected:
             char = curses.keyname(k).decode('utf-8')
 
-            e.preventDefault()
+            # e.preventDefault()
 
             if len(char) == 1:
                 self.value += char
