@@ -1,13 +1,16 @@
 import sys,os
 import curses
 
-from cdom import CDOM, CDOMStyle, Link, KeyEvent
+from cdom import CDOM, CDOMStyle
+from element import Link
+from event import Event, KeyEvent
+
 import pages
 
 from enum import Enum
 
 def draw_menu(stdscr):
-    k = 0
+    k = -1
     
     stdscr.clear()
     stdscr.refresh()
@@ -20,8 +23,8 @@ def draw_menu(stdscr):
 
     cdom = CDOM(stdscr,
         style=CDOMStyle(
-            backgroundColor  = (curses.COLOR_CYAN, curses.COLOR_CYAN),
-            titleColor       = (curses.COLOR_RED, curses.COLOR_MAGENTA),
+            backgroundColor  = (curses.COLOR_CYAN,  curses.COLOR_CYAN),
+            titleColor       = (curses.COLOR_RED,   curses.COLOR_MAGENTA),
             textColor        = (curses.COLOR_BLACK, curses.COLOR_WHITE),
             highlightedColor = (curses.COLOR_WHITE, curses.COLOR_YELLOW),
             wallColor        = (curses.COLOR_BLACK, curses.COLOR_MAGENTA),
@@ -33,7 +36,7 @@ def draw_menu(stdscr):
 
     cdom.goHome()
 
-    while (True):
+    while True:
 
         k = stdscr.getch()
 
@@ -42,11 +45,6 @@ def draw_menu(stdscr):
         highlighted = cdom.currentPage.highlightedElement
 
         if k != -1:
-
-            if k == curses.KEY_LEFT:
-                if cdom.history:
-                    cdom.goToPage(cdom.history.pop(), True)
-            
             # if no highlighted element, nothing below matters
             if not highlighted:
                 continue
@@ -57,29 +55,38 @@ def draw_menu(stdscr):
             # if element has a custom onkey function, run it with e
             if highlighted.onkey:
                 highlighted.onkey(highlighted, e)
+            
+            if hasattr(highlighted, 'defaultOnkey'):
+                highlighted.defaultOnkey(e)
 
             # if e.preventDefault has been called, prevent default
             if e.canceled:
                 continue
+
+            if k == curses.KEY_LEFT:
+                if cdom.history:
+                    cdom.goToPage(cdom.history.pop(), True)
 
             # default key events
             if k == curses.KEY_UP:
                 cdom.currentPage.selectPrevious()
             elif k == curses.KEY_DOWN:
                 cdom.currentPage.selectNext()
-            elif k == curses.KEY_ENTER or k == 10 or k == 13:
+            elif (k == curses.KEY_ENTER or k == 10 or k == 13) or (k == curses.KEY_RIGHT and isinstance(highlighted, Link)):
+                if isinstance(highlighted, Link):
+                    cdom.goToPage(highlighted.url)
+                
                 if highlighted.onselect:
-                    highlighted.onselect(highlighted)
-            
-                if isinstance(highlighted, Link):
-                    cdom.goToPage(highlighted.url)
-            elif k == curses.KEY_RIGHT:
-                if isinstance(highlighted, Link):
-                    if highlighted.onselect:
-                        highlighted.onselect(highlighted)
-                    
-                    cdom.goToPage(highlighted.url)
-        
+                    e = Event()
+
+                    highlighted.onselect(highlighted, e)
+
+                    if not e.canceled and hasattr(highlighted, 'defaultOnselect'):
+                        highlighted.defaultOnselect()
+
+                elif hasattr(highlighted, 'defaultOnselect'):
+                    highlighted.defaultOnselect()
+
         cdom.renderPage(cdom.currentPage, height, width)
 
         curses.delay_output(16)

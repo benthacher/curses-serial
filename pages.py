@@ -1,5 +1,8 @@
-from cdom import Page, PageStyle, Element, Style, Break, Selectable, Link, Align, Input, Dropdown, Wallbreak, ThinWallbreak, Linebreak, Checkbox
 import curses
+
+from page import Page, PageStyle
+from element import Element, Style, Align, Selectable, Link, Break, Wallbreak, Input, Dropdown, Checkbox
+
 import subprocess
 import re
 
@@ -19,12 +22,12 @@ showTime = False
 startTime = 0
 ser = None
 
-def select_port(this):
+def select_port(this, e):
     global selectedPort
     
     selectedPort = this.ID
 
-def set_values(this):
+def set_values(this, e):
     global selectedBaudrate, showTime
 
     page = this.page
@@ -39,12 +42,16 @@ def load_serial_ports(page):
         port = devData[0]
         name = devData[1]
 
-        page.addElement(Link(
+        link = Link(
             label=port + ' ' + name,
             ID=port,
             url='serial-port-settings',
             onselect=select_port
-        ))
+        )
+
+        page.addElement(link)
+
+        link.updateText()
 
 def load_port(page):
     global ser, startTime
@@ -88,12 +95,8 @@ def send_data(this):
     
         input.value = ''
 
-def toggle_custom_baudrate(this):
+def toggle_custom_baudrate(this, e):
     global customBaudrate
-
-    this.checked = not this.checked
-
-    this.updateText()
 
     custom = this.page.getElementByID('baudrate-custom')
     baudrate = this.page.getElementByID('baudrate')
@@ -117,9 +120,6 @@ pages = [
         url='home',
         title='Serial TUI',
         size=(10, 40),
-        style=PageStyle(
-            border=False
-        ),
         elements=[
             Element(
                 text='Select an option',
@@ -137,7 +137,7 @@ pages = [
             Break(),
             Selectable(
                 text='Quit',
-                onselect=lambda this: quit()
+                onselect=lambda this, e: quit()
             )
         ],
         stateless=False
@@ -191,9 +191,6 @@ pages = [
                 label='Connect',
                 url='serial-port',
                 onselect=set_values
-            ),
-            Selectable(
-                text='line1\nline2'
             )
         ],
         stateless=False
@@ -203,9 +200,13 @@ pages = [
         title='serial port name',
         size=(-2, -2),
         elements=[
-            Input(label='λ', ID='send-input', boxed=False),
-            Selectable(text='Send', ID='send-button'),
-            Wallbreak()
+            Input(
+                label='λ',
+                ID='send-input',
+                boxed=False
+            ),
+            Wallbreak(),
+            Element(ID='serial-data')
         ],
         onload=load_port,
         onunload=close_port

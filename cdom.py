@@ -1,8 +1,7 @@
-#!/usr/bin/python3
 import curses
-from enum import Enum
+
 from math import ceil
-from copy import deepcopy
+
 import functools
 import re
 
@@ -89,6 +88,7 @@ class CDOM:
         self.logString = ''
 
         self.history = []
+        self.currentPage = None
 
     def addPages(self, *pages):
         for page in pages:
@@ -106,10 +106,13 @@ class CDOM:
 
         # load elements and page
         for element in page.elements:
-            if element.onload is not None:
+            if hasattr(element, 'defaultOnload'):
+                element.defaultOnload()
+                
+            if element.onload:
                 element.onload(element)
         
-        if page.onload is not None:
+        if page.onload:
             page.onload(page)
 
         return page
@@ -122,15 +125,17 @@ class CDOM:
             return False
 
         # unload the current page if there is one
-        if hasattr(self, 'currentPage'):
+        if self.currentPage:
             if not fromHistoryPage:
                 self.history.append(self.currentPage.url)
 
             for element in self.currentPage.elements:
-                if element.onunload is not None:
+                if hasattr(element, 'defaultOnunload'):
+                    element.defaultOnunload()
+                if element.onunload:
                     element.onunload(element)
             
-            if self.currentPage.onunload is not None:
+            if self.currentPage.onunload:
                 self.currentPage.onunload(self.currentPage)
 
         # set current page and return True
@@ -172,6 +177,8 @@ class CDOM:
 
         # call page and each element's onrefresh method if they have one
         for element in elements:
+            if hasattr(element, 'defaultOnrefresh'):
+                element.defaultOnrefresh()
             if element.onrefresh:
                 element.onrefresh(element)
         
@@ -329,439 +336,3 @@ class CDOM:
          
         # Refresh the screen
         self.stdscr.refresh()
-
-class PageStyle():
-    def __init__(self, border = True, margin = (1, 1), shadow = True):
-        self.border = border
-        self.margin = margin
-        self.shadow = shadow
-
-class Page:
-    def __init__(self, url: str, title: str, elements: list, size: tuple = (None, None), style: PageStyle = PageStyle(), data: dict = {}, stateless = True, onload = None, onunload = None, onrefresh = None):
-        self.url = url
-        self.title = title
-        self.size = size
-        self.displaySize = (0, 0)
-        self.style = style
-        self.elements = elements
-        self.data = data
-        self.stateless = stateless
-        self.onload = onload
-        self.onunload = onunload
-        self.onrefresh = onrefresh
-
-        self.highlightedElement = None
-        self.selectNext()
-
-    def copy(self):
-        cp = Page(
-            url=self.url[:],
-            title=self.title[:],
-            size=self.size + tuple(),
-            style=deepcopy(self.style),
-            elements=[elem.copy() for elem in self.elements],
-            data=deepcopy(self.data),
-            stateless=self.stateless,
-            onload=self.onload,
-            onunload=self.onunload,
-            onrefresh=self.onrefresh
-        )
-
-        cp.setCDOM(self.cdom)
-
-        return cp
-
-    def setCDOM(self, cdom: CDOM):
-        self.cdom = cdom
-
-        for element in self.elements:
-            element.cdom = cdom
-            element.page = self
-    
-    def selectPrevious(self):
-        start = 0 if self.highlightedElement is None else (self.elements.index(self.highlightedElement) - 1)
-        length = len(self.elements)
-
-        for i in range(start + length, start, -1):
-            i %= length
-            elem = self.elements[i]
-
-            if isinstance(elem, Selectable) and elem.style.display:
-                self.highlightedElement = self.elements[i]
-                return
-        
-        self.highlightedElement = None
-
-    def selectNext(self):
-        start = 0 if self.highlightedElement is None else (self.elements.index(self.highlightedElement) + 1)
-        length = len(self.elements)
-
-        for i in range(start, start + length):
-            i %= length
-            elem = self.elements[i]
-
-            if isinstance(elem, Selectable) and elem.style.display:
-                self.highlightedElement = self.elements[i]
-                return
-
-        self.highlightedElement = None
-
-    def getElementByID(self, ID: str):
-        for elem in self.elements:
-            if elem.ID == ID:
-                return elem
-        
-    def getElementsByClassName(self, className: str):
-        res = []
-
-        for element in self.elements:
-            if className in element.classList:
-                res.append(element)
-
-        return res
-    
-    def addElements(self, elements: list, index: int = -1):
-        if index == -1:
-            index = len(self.elements)
-        
-        for element in elements:
-            element.cdom = self.cdom
-            element.page = self
-
-            self.elements.insert(index, element)
-            index += 1
-
-            if element.onload is not None:
-                element.onload(element)
-
-    def addElement(self, element, index: int = -1):
-        self.addElements([ element ], index)
-    
-    def removeElements(self, elements):
-        for element in elements:
-            self.removeElement(element)
-    
-    def removeElement(self, element):
-        if element is self.highlightedElement:
-            self.selectPrevious()
-
-        self.elements.remove(element)
-
-class Align(Enum):
-    LEFT   = 0
-    CENTER = 1
-    RIGHT  = 2
-
-class Style:
-    def __init__(self, color = None, align: Align = Align.LEFT, weight = curses.A_NORMAL, indent: int = 0, display = True, height = None, displayIndex: int = 0):
-        self.color = color
-        self.align = align
-        self.weight = weight
-        self.indent = indent
-        self.display = display
-        self.height = height
-        self.displayIndex = displayIndex
-
-class Element:
-    def __init__(self, text: str = '', style: Style = Style(), ID: str = '', classList: list = [], data: dict = {}, onrefresh = None, onload = None, onunload = None):
-        self.text = text
-        self.style = style
-        self.ID = ID
-        self.classList = classList
-        self.onload = onload
-        self.onunload = onunload
-        self.onrefresh = onrefresh
-        self.page = None
-
-        self.data = data
-    
-    def copy(self):
-        return Element(
-            text=self.text[:],
-            style=deepcopy(self.style),
-            ID=self.ID[:],
-            classList=self.classList[:],
-            data=deepcopy(self.data),
-            onload=self.onload,
-            onunload=self.onunload,
-            onrefresh=self.onrefresh
-        )
-
-    def index(self):
-        return self.page.elements.index(self)
-    
-    def lines(self):
-        lines = self.text.split('\n')[self.style.displayIndex:]
-
-        if self.style.height:
-            if len(lines) > self.style.height:
-                lines = lines[:self.style.height]
-            else:
-                lines.extend([''] * max(0, self.style.height - len(lines)))
-
-        return lines
-    
-    def getText(self):
-        return [
-            ' ' * self.style.indent + self.text,
-            self.text,
-            self.text + ' ' * self.style.indent
-        ][self.style.align.value]
-
-    def displayHeight(self):
-        return self.style.height or len(self.lines())
-
-    def displayWidth(self):
-        return len(self.getText())
-
-class Break(Element):
-    def __init__(self, ID: str = ''):
-        super().__init__(ID=ID)
-
-    def copy(self):
-        return Break(ID=self.ID[:])
-
-class Linebreak(Element):
-    def __init__(self, char: str = '━', ID: str = ''):
-        super().__init__(ID=ID, onrefresh=Linebreak.defaultOnrefresh)
-
-        self.char = char
-
-    @staticmethod
-    def defaultOnrefresh(this):
-        this.text = (this.page.displaySize[1] - 2) * this.char
-
-    def copy(self):
-        return Linebreak(ID=self.ID[:], char=self.char[:])
-
-class Wallbreak(Linebreak):
-    def __init__(self, ID: str = ''):
-        super().__init__(ID=ID, char='═')
-
-    def copy(self):
-        return Wallbreak(ID=self.ID[:])
-
-class ThinWallbreak(Linebreak):
-    def __init__(self, ID: str = ''):
-        super().__init__(ID=ID, char='─')
-
-    def copy(self):
-        return ThinWallbreak(ID=self.ID[:])
-
-class Selectable(Element):
-    def __init__(self, text: str = '', style: Style = Style(), ID: str = '', classList: list = [], data: dict = {}, onrefresh = None, onload = None, onunload = None, onkey = None, onselect = None):
-        super().__init__(text, style, ID, classList, data, onrefresh, onload, onunload)
-
-        self.onkey = onkey
-        self.onselect = onselect
-    
-    def copy(self):
-        return Selectable(
-            text=self.text[:],
-            style=deepcopy(self.style),
-            ID=self.ID[:],
-            classList=self.classList[:],
-            data=deepcopy(self.data),
-            onload=self.onload,
-            onunload=self.onunload,
-            onkey=self.onkey,
-            onrefresh=self.onrefresh,
-            onselect=self.onselect
-        )
-    
-class Link(Selectable):
-    def __init__(self, label: str = '', style: Style = Style(), ID: str = '', classList: list = [], data: dict = {}, onrefresh = None, onload = None, onunload = None, onkey = None, onselect = None, url: str = ''):
-        super().__init__('', style, ID, classList, data, onrefresh, onload, onunload, onkey, onselect)
-
-        self.label = label
-        self.url = url
-        self.onload = Link.defaultOnload
-
-    def copy(self):
-        return Link(
-            label=self.label[:],
-            style=deepcopy(self.style),
-            ID=self.ID[:],
-            classList=self.classList[:],
-            data=deepcopy(self.data),
-            onload=self.onload,
-            onunload=self.onunload,
-            onkey=self.onkey,
-            onrefresh=self.onrefresh,
-            onselect=self.onselect,
-            url=self.url[:]
-        )
-
-    @staticmethod
-    def defaultOnload(this):
-        this.updateText()
-
-    def updateText(self):
-        self.text = self.label + ' →'
-
-class Input(Selectable):
-    def __init__(self, text: str = '', style: Style = Style(), ID: str = '', classList: list = [], data: dict = {}, onrefresh = None, onload = None, onunload = None, onkey = None, onselect = None, value = '', label = '', boxed = True):
-        super().__init__(text, style, ID, classList, data, onrefresh, onload, onunload, onkey, onselect)
-
-        self.selected = False
-        self.value = value
-        self.label = label
-        self.boxed = boxed
-        self.onrefresh = Input.defaultOnrefresh if onrefresh is None else onrefresh
-        self.onkey = Input.defaultOnkey if onkey is None else onkey
-
-    def copy(self):
-        return Input(
-            text=self.text[:],
-            style=deepcopy(self.style),
-            ID=self.ID[:],
-            classList=self.classList[:],
-            data=deepcopy(self.data),
-            onload=self.onload,
-            onunload=self.onunload,
-            onkey=self.onkey,
-            onrefresh=self.onrefresh,
-            onselect=self.onselect,
-            value=self.value[:] if type(self.value) is str else self.value,
-            label=self.label[:],
-            boxed=self.boxed
-        )
-    @staticmethod
-    def defaultOnrefresh(this):
-        this.updateText()
-
-        if this.selected:
-            this.style.weight = curses.A_UNDERLINE
-        else:
-            this.style.weight = curses.A_NORMAL
-
-    @staticmethod
-    def defaultOnkey(this, e):
-        k = e.key
-
-        if this.selected:
-            char = curses.keyname(k).decode('utf-8')
-
-            e.preventDefault()
-
-            if len(char) == 1:
-                this.value += char
-
-            if k == curses.KEY_BACKSPACE:
-                this.value = this.value[:-1]
-            elif k == 27:
-                this.selected = False
-        
-        if k == curses.KEY_ENTER or k == 10 or k == 13:
-            this.selected = not this.selected
-
-        this.updateText()
-    
-    def updateText(self):
-        self.text = f"{self.label}{': ' * (self.label != '')}{'[' * self.boxed}{self.value}{']' * self.boxed}"
-
-class Dropdown(Input):
-    def __init__(self, text: str = '', style: Style = Style(), ID: str = '', classList: list = [], data: dict = {}, onrefresh = None, onload = None, onunload = None, onkey = None, onselect = None, value = '', label = '', boxed = True, valueList=[]):
-        super().__init__(text, style, ID, classList, data, onrefresh, onload, onunload, onkey, onselect, value, label, boxed)
-
-        if value == '':
-            self.value = valueList[0]
-        
-        self.valueList = valueList
-        self.onkey = Dropdown.defaultOnkey if onkey is None else onkey
-
-    def copy(self):
-        return Dropdown(
-            text=self.text[:],
-            style=deepcopy(self.style),
-            ID=self.ID[:],
-            classList=self.classList[:],
-            data=deepcopy(self.data),
-            onload=self.onload,
-            onunload=self.onunload,
-            onkey=self.onkey,
-            onrefresh=self.onrefresh,
-            onselect=self.onselect,
-            value=self.value[:] if type(self.value) is str else self.value,
-            label=self.label[:],
-            boxed=self.boxed,
-            valueList=self.valueList[:]
-        )
-
-    @staticmethod
-    def defaultOnkey(this, e):
-        k = e.key
-
-        if this.selected:
-            e.preventDefault()
-
-            if k == curses.KEY_DOWN:
-                i = this.valueList.index(this.value)
-
-                if i == len(this.valueList) - 1:
-                    i = -1
-                
-                this.value = this.valueList[i + 1]
-            elif k == curses.KEY_UP:
-                i = this.valueList.index(this.value)
-
-                if i == 0:
-                    i = len(this.valueList)
-                
-                this.value = this.valueList[i - 1]
-            elif k == 27:
-                this.selected = False
-        
-        if k == curses.KEY_ENTER or k == 10 or k == 13:
-            this.selected = not this.selected
-
-        this.updateText()
-
-class Checkbox(Selectable):
-    def __init__(self, label: str = '', style: Style = Style(), ID: str = '', classList: list = [], data: dict = {}, onrefresh = None, onload = None, onunload = None, onkey = None, onselect = None, checked = False):
-        super().__init__('', style, ID, classList, data, onrefresh, onload, onunload, onkey, onselect)
-
-        self.checked = checked
-        self.label = label
-        
-        self.onselect = Checkbox.defaultOnselect if onselect is None else onselect
-
-        self.updateText()
-
-    @staticmethod
-    def defaultOnselect(this):
-        this.checked = not this.checked
-
-        this.updateText()
-    
-    def copy(self):
-        return Checkbox(
-            label=self.label[:],
-            style=deepcopy(self.style),
-            ID=self.ID[:],
-            classList=self.classList[:],
-            data = deepcopy(self.data),
-            onrefresh=self.onrefresh,
-            onload=self.onload,
-            onunload=self.onunload,
-            onkey=self.onkey,
-            onselect=self.onselect,
-            checked=self.checked
-        )
-
-    def updateText(self):
-        self.text = f"{self.label}: [{'✓' if self.checked else ' '}]"
-
-
-class Event():
-    def __init__(self):
-        self.canceled = False
-
-    def preventDefault(self):
-        self.canceled = True
-
-class KeyEvent(Event):
-    def __init__(self, key):
-        super().__init__()
-
-        self.key = key
