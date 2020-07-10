@@ -134,7 +134,7 @@ pages = [
                 style=Style(
                     indent=2
                 ),
-                ID='show-time',
+                ID='custom-baudrate',
                 onselect=toggle_custom_baudrate
             ),
             Checkbox(
@@ -155,10 +155,11 @@ pages = [
         size=(-2, -2),
         elements=[
             Input(
-                label='λ',
+                label='Send',
                 ID='send-input',
                 boxed=False,
-                onselect=send_data
+                onselect=send_data,
+                selected=True
             ),
             Wallbreak(),
             Element(ID='serial-data')

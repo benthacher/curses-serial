@@ -153,10 +153,10 @@ class Link(Selectable):
         self.text = self.label + ' → '
 
 class Input(Selectable):
-    def __init__(self, text: str = '', style: Style = Style(), ID: str = '', classList: list = [], data: dict = {}, onrefresh = None, onload = None, onunload = None, onkey = None, onselect = None, value = '', label = '', boxed = True):
+    def __init__(self, text: str = '', style: Style = Style(), ID: str = '', classList: list = [], data: dict = {}, onrefresh = None, onload = None, onunload = None, onkey = None, onselect = None, value = '', label = '', boxed = True, selected = False):
         super().__init__(text, style, ID, classList, data, onrefresh, onload, onunload, onkey, onselect)
 
-        self.selected = False
+        self.selected = selected
         self.value = value
         self.label = label
         self.boxed = boxed

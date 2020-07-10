@@ -74,7 +74,6 @@ class CDOM:
     # 3 is the length/2 of the title's padding: '┌┤  ├┐'
     MIN_TITLE_PADDING = 3
 
-    # I need a better way of passing colors
     def __init__(self, stdscr, style):
         self.pages = []
         self.stdscr = stdscr
@@ -152,7 +151,7 @@ class CDOM:
     def trystr(self, row, col, string, color):
         try:
             self.stdscr.addstr(row, col, string, color)
-        except curses.error:
+        except (curses.error, ValueError):
             pass
 
     # normal call: pass in currentPage, height and width of terminal, it will render to fit

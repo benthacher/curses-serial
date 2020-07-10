@@ -38,15 +38,24 @@ class SerialConnection:
         try:
 
             serialData = page.getElementByID('serial-data')
+            
+            if self.showTime:
+                serialData.text += "[{}] ".format(format(currentTime() - self.startTime, '07'))
 
             while self.still_alive:
-
-                if self.showTime:
-                    serialData.text += "[{}] ".format(format(currentTime() - self.startTime, '07'))
-
                 try:
-                    serialData.text += self.ser.read().decode('utf-8')
-                except UnicodeDecodeError:
+                    data = self.ser.read(5).decode('utf-8')
+
+                    for char in data:
+                        serialData.text += char
+
+                        if char == '\n' and self.showTime:
+                            serialData.text += "[{}] ".format(format(currentTime() - self.startTime, '07'))
+
+                    if page.displaySize[0] - (2 + page.style.margin[0] * 2) < serialData.displayHeight():
+                        serialData.style.displayIndex += 1
+                    
+                except (UnicodeDecodeError, serial.serialutil.SerialException):
                     pass
 
         except serial.SerialTimeoutException:
