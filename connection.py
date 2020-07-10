@@ -17,19 +17,26 @@ class SerialConnection:
         self.startTime = 0
     
     def connect(self, page):
-        self.ser = serial.Serial(self.port, self.baudrate, timeout=5, write_timeout=5)
+        try:
+            self.ser = serial.Serial(self.port, self.baudrate, timeout=5, write_timeout=5)
 
-        self.still_alive = True
+            self.still_alive = True
 
-        self.thread = threading.Thread(target=self.readPort, args=[ page ])
-        self.thread.start()
+            self.thread = threading.Thread(target=self.readPort, args=[ page ])
+            self.thread.start()
 
-        self.startTime = currentTime()
+            self.startTime = currentTime()
 
-        page.title = self.port
+            page.title = self.port
 
+        except KeyboardInterrupt:
+            page.getElementByID('serial-data').text += 'Detached from ' + self.ser.name
+
+            self.still_alive = False
+            self.ser.close()
     def readPort(self, page):
         try:
+
             serialData = page.getElementByID('serial-data')
 
             while self.still_alive:
@@ -41,13 +48,6 @@ class SerialConnection:
                     serialData.text += self.ser.read().decode('utf-8')
                 except UnicodeDecodeError:
                     pass
-
-        except KeyboardInterrupt:
-
-            serialData.text += 'Detached from ' + self.ser.name
-
-            self.still_alive = False
-            self.ser.close()
 
         except serial.SerialTimeoutException:
 
