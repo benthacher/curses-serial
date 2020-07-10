@@ -3,6 +3,7 @@ import curses
 from page import Page, PageStyle
 from element import Element, Style, Align, Selectable, Link, Break, Wallbreak, Input, Dropdown, Checkbox
 from connection import SerialConnection
+from event import KeyEvent
 
 import subprocess
 import re
@@ -59,6 +60,19 @@ def toggle_custom_baudrate(this, e):
     baudrate.style.display = not baudrate.style.display
 
     customBaudrate = not customBaudrate
+
+def toggle_output(this, e):
+    if KeyEvent.isEnter(e.key):
+        this.text = 'Resume Output (use arrow keys to traverse output)' if connection.output else 'Pause Output'
+        connection.output = not connection.output
+    
+    if not connection.output:
+        if e.key == curses.KEY_UP:
+            this.page.getElementByID('serial-data').style.displayIndex -= 1
+            e.preventDefault()
+        if e.key == curses.KEY_DOWN:
+            this.page.getElementByID('serial-data').style.displayIndex += 1
+            e.preventDefault()
 
 pages = [
     # Page(
@@ -158,8 +172,11 @@ pages = [
                 label='Send',
                 ID='send-input',
                 boxed=False,
-                onselect=send_data,
-                selected=True
+                onselect=send_data
+            ),
+            Selectable(
+                text='Pause Output',
+                onkey=toggle_output
             ),
             Wallbreak(),
             Element(ID='serial-data')

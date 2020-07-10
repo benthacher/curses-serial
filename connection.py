@@ -20,7 +20,8 @@ class SerialConnection:
         try:
             self.ser = serial.Serial(self.port, self.baudrate, timeout=5, write_timeout=5)
 
-            self.still_alive = True
+            self.stillAlive = True
+            self.output = True
 
             self.thread = threading.Thread(target=self.readPort, args=[ page ])
             self.thread.start()
@@ -30,30 +31,29 @@ class SerialConnection:
             page.title = self.port
 
         except KeyboardInterrupt:
-            page.getElementByID('serial-data').text += 'Detached from ' + self.ser.name
+            self.disconnect(page)
 
-            self.still_alive = False
-            self.ser.close()
     def readPort(self, page):
         try:
 
             serialData = page.getElementByID('serial-data')
             
-            if self.showTime:
+            if self.showTime and self.output:
                 serialData.text += "[{}] ".format(format(currentTime() - self.startTime, '07'))
 
-            while self.still_alive:
+            while self.stillAlive:
                 try:
-                    data = self.ser.read(5).decode('utf-8')
+                    if self.output:
+                        data = self.ser.read(5).decode('utf-8')
 
-                    for char in data:
-                        serialData.text += char
+                        for char in data:
+                            serialData.text += char
 
-                        if char == '\n' and self.showTime:
-                            serialData.text += "[{}] ".format(format(currentTime() - self.startTime, '07'))
+                            if char == '\n' and self.showTime:
+                                serialData.text += "[{}] ".format(format(currentTime() - self.startTime, '07'))
 
-                    if page.displaySize[0] - (2 + page.style.margin[0] * 2) < serialData.displayHeight():
-                        serialData.style.displayIndex += 1
+                        if page.displaySize[0] - (3 + page.style.margin[0] * 2) < serialData.displayHeight():
+                            serialData.style.displayIndex += 1
                     
                 except (UnicodeDecodeError, serial.serialutil.SerialException):
                     pass
@@ -62,16 +62,15 @@ class SerialConnection:
 
             serialData.text += 'Serial timeout while trying to receive data.'
 
-            self.still_alive = False
-            self.ser.close()
+            self.disconnect(page)
         
     def send(self, string):
-        if self.still_alive:
+        if self.stillAlive:
             print(string)
             self.ser.write(string.encode('utf-8'))
     
     def disconnect(self, page):
-        self.still_alive = False
+        self.stillAlive = False
         self.ser.close()
 
-        page.getElementByID('serial-data').text = ''
+        page.getElementByID('serial-data').text += 'Detached from ' + self.ser.name    

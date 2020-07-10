@@ -177,7 +177,8 @@ class Input(Selectable):
             onselect=self.onselect,
             value=self.value[:] if type(self.value) is str else self.value,
             label=self.label[:],
-            boxed=self.boxed
+            boxed=self.boxed,
+            selected=self.selected
         )
 
     def defaultOnrefresh(self):

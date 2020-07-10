@@ -72,7 +72,7 @@ def draw_menu(stdscr):
                 cdom.currentPage.selectPrevious()
             elif k == curses.KEY_DOWN:
                 cdom.currentPage.selectNext()
-            elif (k == curses.KEY_ENTER or k == 10 or k == 13) or (k == curses.KEY_RIGHT and isinstance(highlighted, Link)):
+            elif KeyEvent.isEnter(k) or (k == curses.KEY_RIGHT and isinstance(highlighted, Link)):
                 if isinstance(highlighted, Link):
                     cdom.goToPage(highlighted.url)
                 

@@ -1,3 +1,5 @@
+import curses
+
 class Event():
     def __init__(self):
         self.canceled = False
@@ -10,3 +12,7 @@ class KeyEvent(Event):
         super().__init__()
 
         self.key = key
+    
+    @staticmethod
+    def isEnter(key):
+        return (key == curses.KEY_ENTER or key == 10 or key == 13)
