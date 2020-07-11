@@ -66,7 +66,6 @@ class SerialConnection:
         
     def send(self, string):
         if self.stillAlive:
-            print(string)
             self.ser.write(string.encode('utf-8'))
     
     def disconnect(self, page):

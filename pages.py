@@ -2,7 +2,7 @@ import curses
 
 from page import Page, PageStyle
 from element import Element, Style, Align, Selectable, Link, Break, Wallbreak, Input, Dropdown, Checkbox
-from connection import SerialConnection
+from connection import SerialConnection, currentTime
 from event import KeyEvent
 
 import subprocess
@@ -67,12 +67,37 @@ def toggle_output(this, e):
         connection.output = not connection.output
     
     if not connection.output:
+        dataElem = this.page.getElementByID('serial-data')
+
+        if 'scrollVelocity' in dataElem.data.keys():
+            if currentTime() - dataElem.data.get('prevTime', 0) < 100:
+                dataElem.data['scrollVelocity'] += 0.1
+            else:
+                dataElem.data['scrollVelocity'] = 1
+
+            vel = dataElem.data['scrollVelocity']
+        else:
+            dataElem.data['scrollVelocity'] = vel = 1
+        
+        maxheight = len(dataElem.text.split('\n')) - 1
+
         if e.key == curses.KEY_UP:
-            this.page.getElementByID('serial-data').style.displayIndex -= 1
+            dataElem.style.displayIndex -= int(1 * vel) if dataElem.style.displayIndex > 0 else 0
             e.preventDefault()
         if e.key == curses.KEY_DOWN:
-            this.page.getElementByID('serial-data').style.displayIndex += 1
+            dataElem.style.displayIndex += int(1 * vel) if dataElem.style.displayIndex < maxheight else 0
             e.preventDefault()
+        if e.key == curses.KEY_PPAGE:
+            dataElem.style.displayIndex = dataElem.style.displayIndex - int(10 * vel) if dataElem.style.displayIndex > 10 else 0
+            e.preventDefault()
+        if e.key == curses.KEY_NPAGE:
+            dataElem.style.displayIndex = dataElem.style.displayIndex + int(10 * vel) if dataElem.style.displayIndex < maxheight - 1 else maxheight
+            e.preventDefault()
+        
+        dataElem.style.displayIndex = max(dataElem.style.displayIndex, 0)
+        dataElem.style.displayIndex = min(dataElem.style.displayIndex, maxheight)
+        
+        dataElem.data['prevTime'] = currentTime()
 
 pages = [
     # Page(
